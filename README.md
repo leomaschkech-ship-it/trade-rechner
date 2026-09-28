@@ -17,3 +17,14 @@ npm run dev
 npm test
 npm run typecheck
 ```
+
+## Index-Scanner (Watchlist)
+
+Die Watchlist bewertet alle Aktien eines Index automatisch nach den Watchlist-Kriterien.
+Die Kursdaten lädt der GitHub-Workflow Mo–Fr nach US-Börsenschluss von Yahoo Finance
+(`scripts/fetch-market-data.ts`) und legt sie unter `data/` neben die App. Manuell
+starten: Actions → „Deploy to GitHub Pages" → „Run workflow".
+
+- Index-Zusammensetzung: `src/scanner/indices.ts` (DAX, MDAX, TecDAX, Nasdaq 100 von Hand gepflegt, S&P 500 automatisch)
+- Regeln: `src/scanner/regeln.ts`, Zusammenführung: `src/scanner/scan.ts`
+- Lokal Daten laden: `npx tsx scripts/fetch-market-data.ts`
