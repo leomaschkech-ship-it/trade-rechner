@@ -149,7 +149,7 @@ const TECDAX: Zeile[] = [
   ['WAF.DE', 'Siltronic', 'Technologie'],
   ['NDX1.DE', 'Nordex', 'Industrie'],
   ['S92.DE', 'SMA Solar', 'Technologie'],
-  ['SBO.DE', 'Kontron', 'Technologie'],
+  ['KTN.DE', 'Kontron', 'Technologie'],
   ['EUZ.DE', 'Eckert & Ziegler', 'Gesundheit'],
   ['IOS.DE', 'Ionos', 'Technologie'],
   ['AOF.DE', 'Atoss Software', 'Technologie'],
