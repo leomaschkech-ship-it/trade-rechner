@@ -302,3 +302,91 @@ button {
   border-color: #ef4444;
   color: #ef4444;
 }
+
+.scanner {
+  margin-bottom: 1.5rem;
+}
+
+.scanner-indizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.scanner-chip {
+  border-color: #2a3441;
+  color: #8b98a9;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+}
+
+.scanner-chip--aktiv {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #0b0f14;
+}
+
+.scanner-hinweis {
+  color: #8b98a9;
+  font-size: 0.9rem;
+}
+
+.scanner-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #8b98a9;
+  font-size: 0.9rem;
+}
+
+.scanner-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+  padding: 0.5rem 0.75rem;
+  background: #131922;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.scanner-details ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+
+.scanner-details__zeile {
+  margin: 0 0 0.5rem;
+}
+
+.scanner-kriterium {
+  color: #8b98a9;
+}
+
+.scanner-kriterium span {
+  color: #ef4444;
+}
+
+.scanner-kriterium--ok {
+  color: #e5e9f0;
+}
+
+.scanner-kriterium--ok span {
+  color: #16a34a;
+}
+
+.scanner-einstellungen {
+  margin-top: 1rem;
+  color: #8b98a9;
+}
+
+.scanner-einstellungen summary {
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+button:disabled {
+  border-color: #2a3441;
+  color: #8b98a9;
+}

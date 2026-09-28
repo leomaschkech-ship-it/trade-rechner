@@ -1,9 +1,11 @@
+import { STANDARD_EINSTELLUNGEN, type ScannerEinstellungen } from './scanner/regeln';
 import type { Calculation, Handelsplan, Profile, ScreeningEintrag } from './types';
 
 const PROFILE_KEY = 'trade-rechner:profile';
 const CALCULATIONS_KEY = 'trade-rechner:calculations';
 const HANDELSPLAN_KEY = 'trade-rechner:handelsplan';
 const SCREENINGS_KEY = 'trade-rechner:screenings';
+const SCANNER_KEY = 'trade-rechner:scanner-einstellungen';
 
 const DEFAULT_PROFILE: Profile = {
   depotgroesse: 0,
@@ -102,6 +104,26 @@ export function loadScreenings(): ScreeningEintrag[] {
 export function saveScreenings(screenings: ScreeningEintrag[]): void {
   try {
     localStorage.setItem(SCREENINGS_KEY, JSON.stringify(screenings));
+  } catch {
+    // siehe saveProfile
+  }
+}
+
+export function loadScannerEinstellungen(): ScannerEinstellungen {
+  try {
+    const raw = localStorage.getItem(SCANNER_KEY);
+    if (!raw) return STANDARD_EINSTELLUNGEN;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return STANDARD_EINSTELLUNGEN;
+    return { ...STANDARD_EINSTELLUNGEN, ...parsed };
+  } catch {
+    return STANDARD_EINSTELLUNGEN;
+  }
+}
+
+export function saveScannerEinstellungen(einstellungen: ScannerEinstellungen): void {
+  try {
+    localStorage.setItem(SCANNER_KEY, JSON.stringify(einstellungen));
   } catch {
     // siehe saveProfile
   }

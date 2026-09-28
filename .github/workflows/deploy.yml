@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+  # Nächtlicher Abruf der Kursdaten für den Index-Scanner (Mo–Fr nach US-Börsenschluss)
+  schedule:
+    - cron: '30 22 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -11,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,6 +28,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Kursdaten für den Index-Scanner laden
+        run: npx tsx scripts/fetch-market-data.ts
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
@@ -31,6 +37,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:

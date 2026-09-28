@@ -8,6 +8,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Kursdaten des Scanners: immer frisch laden, offline den letzten Stand zeigen
+        runtimeCaching: [
+          {
+            urlPattern: /\/data\/.*\.json$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'scanner-daten', expiration: { maxEntries: 10 } },
+          },
+        ],
+      },
       manifest: {
         name: 'Trade-Rechner',
         short_name: 'Trade',
