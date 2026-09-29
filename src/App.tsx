@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BottomNav, type Tab } from './components/BottomNav';
 import { HandelsplanView } from './components/HandelsplanView';
+import { NewsScreeningView } from './components/NewsScreeningView';
 import { ProfilView } from './components/ProfilView';
 import { RechnerView } from './components/RechnerView';
 import { VerlaufView } from './components/VerlaufView';
@@ -19,6 +20,7 @@ export function App() {
         {activeTab === 'profil' && <ProfilView store={store} />}
         {activeTab === 'plan' && <HandelsplanView store={store} />}
         {activeTab === 'watchlist' && <WatchlistView store={store} />}
+        {activeTab === 'news' && <NewsScreeningView store={store} />}
       </main>
       <BottomNav active={activeTab} onChange={setActiveTab} />
     </div>

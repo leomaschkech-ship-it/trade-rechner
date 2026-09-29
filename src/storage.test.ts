@@ -39,23 +39,23 @@ beforeEach(() => {
 
 describe('loadProfile', () => {
   it('gibt Default-Profil zurück, wenn nichts gespeichert ist', () => {
-    expect(loadProfile()).toEqual({ depotgroesse: 0, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€' });
+    expect(loadProfile()).toEqual({ depotgroesse: 0, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€', twelveDataApiKey: '', finnhubApiKey: '' });
   });
 
   it('speichert und lädt ein Profil unverändert', () => {
-    const profile: Profile = { depotgroesse: 10000, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€' };
+    const profile: Profile = { depotgroesse: 10000, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€', twelveDataApiKey: '', finnhubApiKey: '' };
     saveProfile(profile);
     expect(loadProfile()).toEqual(profile);
   });
 
   it('ergänzt fehlende Felder eines gespeicherten Profils mit Defaults', () => {
     localStorage.setItem('trade-rechner:profile', JSON.stringify({ depotgroesse: 5000 }));
-    expect(loadProfile()).toEqual({ depotgroesse: 5000, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€' });
+    expect(loadProfile()).toEqual({ depotgroesse: 5000, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€', twelveDataApiKey: '', finnhubApiKey: '' });
   });
 
   it('gibt Default-Profil zurück bei kaputtem JSON', () => {
     localStorage.setItem('trade-rechner:profile', '{not valid json');
-    expect(loadProfile()).toEqual({ depotgroesse: 0, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€' });
+    expect(loadProfile()).toEqual({ depotgroesse: 0, standardRisikoProzent: 1, standardLimitPuffer: 0.3, waehrung: '€', twelveDataApiKey: '', finnhubApiKey: '' });
   });
 });
 

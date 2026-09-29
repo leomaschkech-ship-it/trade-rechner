@@ -12,6 +12,8 @@ const DEFAULT_PROFILE: Profile = {
   standardRisikoProzent: 1,
   standardLimitPuffer: 0.3,
   waehrung: '€',
+  twelveDataApiKey: '',
+  finnhubApiKey: '',
 };
 
 const DEFAULT_HANDELSPLAN: Handelsplan = {

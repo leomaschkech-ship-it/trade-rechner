@@ -5,6 +5,8 @@ export interface Profile {
   standardRisikoProzent: number;
   standardLimitPuffer: number;
   waehrung: Waehrung;
+  twelveDataApiKey: string;
+  finnhubApiKey: string;
 }
 
 export type Richtung = 'long' | 'short';

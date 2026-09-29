@@ -7,6 +7,8 @@ export function ProfilView({ store }: { store: TradeStore }) {
   const [standardRisikoProzent, setStandardRisikoProzent] = useState(String(store.profile.standardRisikoProzent));
   const [standardLimitPuffer, setStandardLimitPuffer] = useState(String(store.profile.standardLimitPuffer));
   const [waehrung, setWaehrung] = useState<Waehrung>(store.profile.waehrung);
+  const [twelveDataApiKey, setTwelveDataApiKey] = useState(store.profile.twelveDataApiKey);
+  const [finnhubApiKey, setFinnhubApiKey] = useState(store.profile.finnhubApiKey);
   const [savedMessage, setSavedMessage] = useState(false);
 
   function handleSubmit(event: FormEvent) {
@@ -16,6 +18,8 @@ export function ProfilView({ store }: { store: TradeStore }) {
       standardRisikoProzent: Number(standardRisikoProzent) || 0,
       standardLimitPuffer: Number(standardLimitPuffer) || 0,
       waehrung,
+      twelveDataApiKey: twelveDataApiKey.trim(),
+      finnhubApiKey: finnhubApiKey.trim(),
     });
     setSavedMessage(true);
     setTimeout(() => setSavedMessage(false), 2000);
@@ -62,6 +66,27 @@ export function ProfilView({ store }: { store: TradeStore }) {
             <option value="$">$</option>
           </select>
         </label>
+
+        <h2>News-Screening</h2>
+        <label>
+          Twelve-Data-API-Key
+          <input
+            type="password"
+            autoComplete="off"
+            value={twelveDataApiKey}
+            onChange={(event) => setTwelveDataApiKey(event.target.value)}
+          />
+        </label>
+        <label>
+          Finnhub-API-Key
+          <input
+            type="password"
+            autoComplete="off"
+            value={finnhubApiKey}
+            onChange={(event) => setFinnhubApiKey(event.target.value)}
+          />
+        </label>
+
         <button type="submit">Speichern</button>
       </form>
       {savedMessage && <p className="calc-form__saved">Profil gespeichert.</p>}

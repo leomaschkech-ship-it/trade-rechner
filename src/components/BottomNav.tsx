@@ -1,4 +1,4 @@
-export type Tab = 'rechner' | 'verlauf' | 'profil' | 'plan' | 'watchlist';
+export type Tab = 'rechner' | 'verlauf' | 'profil' | 'plan' | 'watchlist' | 'news';
 
 interface BottomNavProps {
   active: Tab;
@@ -11,6 +11,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'profil', label: 'Profil' },
   { id: 'plan', label: 'Plan' },
   { id: 'watchlist', label: 'Watch' },
+  { id: 'news', label: 'News' },
 ];
 
 export function BottomNav({ active, onChange }: BottomNavProps) {
