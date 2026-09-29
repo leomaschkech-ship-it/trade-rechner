@@ -1,6 +1,6 @@
 import { ValidationError } from './positionSize';
 import type { Tageskerze } from './twelveDataClient';
-import type { Richtung } from './types';
+import type { GespeicherteSchlagzeile, NewsScreeningEintrag, Richtung } from './types';
 
 export const MIN_GAP_PROZENT = 5;
 export const MAX_GAP_SCHLIESSUNG_PROZENT = 50;
@@ -124,4 +124,60 @@ export function beurteileNewsTrade(gap: GapAnalyse, newsArt: NewsArt | null): Ne
   }
 
   return { handelbar: gruende.length === 0, gruende };
+}
+
+export function fuegeNewsScreeningEin(
+  liste: NewsScreeningEintrag[],
+  eintrag: NewsScreeningEintrag,
+): NewsScreeningEintrag[] {
+  const bestehenderEintrag = liste.find((e) => e.symbol === eintrag.symbol && e.gapDatum === eintrag.gapDatum);
+  const ohneDuplikat = liste.filter((e) => !(e.symbol === eintrag.symbol && e.gapDatum === eintrag.gapDatum));
+  const neuerEintrag =
+    bestehenderEintrag && eintrag.notiz === '' ? { ...eintrag, notiz: bestehenderEintrag.notiz } : eintrag;
+  return [neuerEintrag, ...ohneDuplikat];
+}
+
+function istEndlicheZahl(wert: unknown): wert is number {
+  return typeof wert === 'number' && Number.isFinite(wert);
+}
+
+function istGueltigeGapAnalyse(wert: unknown): wert is GapAnalyse {
+  if (typeof wert !== 'object' || wert === null) return false;
+  const gap = wert as Record<string, unknown>;
+  return (
+    (gap.richtung === 'long' || gap.richtung === 'short') &&
+    typeof gap.vortagDatum === 'string' &&
+    istEndlicheZahl(gap.vortagSchluss) &&
+    istEndlicheZahl(gap.gapTagOpen) &&
+    istEndlicheZahl(gap.gapProzent) &&
+    istEndlicheZahl(gap.gapSchliessungProzent) &&
+    istEndlicheZahl(gap.extremSeitGap)
+  );
+}
+
+export function istGueltigeGespeicherteSchlagzeile(wert: unknown): wert is GespeicherteSchlagzeile {
+  if (typeof wert !== 'object' || wert === null) return false;
+  const s = wert as Record<string, unknown>;
+  return (
+    typeof s.zeitpunkt === 'string' &&
+    typeof s.titel === 'string' &&
+    typeof s.quelle === 'string' &&
+    typeof s.url === 'string'
+  );
+}
+
+export function istGueltigerNewsScreeningEintrag(wert: unknown): wert is NewsScreeningEintrag {
+  if (typeof wert !== 'object' || wert === null) return false;
+  const e = wert as Record<string, unknown>;
+  return (
+    typeof e.id === 'string' &&
+    typeof e.symbol === 'string' &&
+    typeof e.gapDatum === 'string' &&
+    typeof e.notiz === 'string' &&
+    typeof e.gespeichertAm === 'string' &&
+    typeof e.zuletztGeprueftAm === 'string' &&
+    NEWS_ARTEN.some((art) => art.id === e.newsArt) &&
+    istGueltigeGapAnalyse(e.gap) &&
+    Array.isArray(e.schlagzeilen)
+  );
 }

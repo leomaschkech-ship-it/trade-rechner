@@ -2,25 +2,30 @@ import { useEffect, useState } from 'react';
 import {
   loadCalculations,
   loadHandelsplan,
+  loadNewsScreenings,
   loadProfile,
   loadScreenings,
   saveCalculations,
   saveHandelsplan,
+  saveNewsScreenings,
   saveProfile,
   saveScreenings,
 } from '../storage';
-import type { Calculation, Handelsplan, Profile, ScreeningEintrag } from '../types';
+import { fuegeNewsScreeningEin } from '../newsScreening';
+import type { Calculation, Handelsplan, NewsScreeningEintrag, Profile, ScreeningEintrag } from '../types';
 
 export function useTradeStore() {
   const [profile, setProfile] = useState<Profile>(() => loadProfile());
   const [calculations, setCalculations] = useState<Calculation[]>(() => loadCalculations());
   const [handelsplan, setHandelsplan] = useState<Handelsplan>(() => loadHandelsplan());
   const [screenings, setScreenings] = useState<ScreeningEintrag[]>(() => loadScreenings());
+  const [newsScreenings, setNewsScreenings] = useState<NewsScreeningEintrag[]>(() => loadNewsScreenings());
 
   useEffect(() => saveProfile(profile), [profile]);
   useEffect(() => saveCalculations(calculations), [calculations]);
   useEffect(() => saveHandelsplan(handelsplan), [handelsplan]);
   useEffect(() => saveScreenings(screenings), [screenings]);
+  useEffect(() => saveNewsScreenings(newsScreenings), [newsScreenings]);
 
   function updateProfile(patch: Partial<Profile>) {
     setProfile((prev) => ({ ...prev, ...patch }));
@@ -58,11 +63,24 @@ export function useTradeStore() {
     setScreenings([]);
   }
 
+  function speichereNewsScreening(eintrag: NewsScreeningEintrag) {
+    setNewsScreenings((prev) => fuegeNewsScreeningEin(prev, eintrag));
+  }
+
+  function updateNewsScreening(id: string, patch: Partial<NewsScreeningEintrag>) {
+    setNewsScreenings((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
+  }
+
+  function removeNewsScreening(id: string) {
+    setNewsScreenings((prev) => prev.filter((entry) => entry.id !== id));
+  }
+
   return {
     profile,
     calculations,
     handelsplan,
     screenings,
+    newsScreenings,
     updateProfile,
     addCalculation,
     removeCalculation,
@@ -72,6 +90,9 @@ export function useTradeStore() {
     addScreening,
     removeScreening,
     clearScreenings,
+    speichereNewsScreening,
+    updateNewsScreening,
+    removeNewsScreening,
   };
 }
 

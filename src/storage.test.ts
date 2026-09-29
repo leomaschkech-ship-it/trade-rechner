@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   loadCalculations,
   loadHandelsplan,
+  loadNewsScreenings,
   loadProfile,
   loadScreenings,
   saveCalculations,
   saveHandelsplan,
+  saveNewsScreenings,
   saveProfile,
   saveScreenings,
 } from './storage';
-import type { Calculation, Handelsplan, Profile, ScreeningEintrag } from './types';
+import type { Calculation, Handelsplan, NewsScreeningEintrag, Profile, ScreeningEintrag } from './types';
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -233,5 +235,63 @@ describe('loadScreenings', () => {
   it('gibt leeres Array zurück bei kaputtem JSON', () => {
     localStorage.setItem('trade-rechner:screenings', '{not valid json');
     expect(loadScreenings()).toEqual([]);
+  });
+});
+
+describe('loadNewsScreenings', () => {
+  const gueltig: NewsScreeningEintrag = {
+    id: 'n1',
+    symbol: 'AAPL',
+    gapDatum: '2026-09-11',
+    gap: {
+      richtung: 'long',
+      vortagDatum: '2026-09-10',
+      vortagSchluss: 100,
+      gapTagOpen: 108,
+      gapProzent: 8,
+      gapSchliessungProzent: 37.5,
+      extremSeitGap: 105,
+    },
+    newsArt: 'gewinnwarnung',
+    notiz: 'P2 beobachten',
+    schlagzeilen: [{ zeitpunkt: '2026-09-11T12:00:00.000Z', titel: 'Titel', quelle: 'Reuters', url: 'https://example.com' }],
+    gespeichertAm: '2026-09-29T10:00:00.000Z',
+    zuletztGeprueftAm: '2026-09-29T10:00:00.000Z',
+  };
+
+  it('gibt leeres Array zurück, wenn nichts gespeichert ist', () => {
+    expect(loadNewsScreenings()).toEqual([]);
+  });
+
+  it('speichert und lädt Einträge unverändert', () => {
+    saveNewsScreenings([gueltig]);
+    expect(loadNewsScreenings()).toEqual([gueltig]);
+  });
+
+  it('gibt leeres Array zurück bei kaputtem JSON', () => {
+    localStorage.setItem('trade-rechner:news-screenings', '{kaputt');
+    expect(loadNewsScreenings()).toEqual([]);
+  });
+
+  it('gibt leeres Array zurück, wenn kein Array gespeichert ist', () => {
+    localStorage.setItem('trade-rechner:news-screenings', JSON.stringify({ id: 'n1' }));
+    expect(loadNewsScreenings()).toEqual([]);
+  });
+
+  it('verwirft ungültige Einträge und behält gültige', () => {
+    localStorage.setItem(
+      'trade-rechner:news-screenings',
+      JSON.stringify([gueltig, { id: 'kaputt' }, { ...gueltig, id: 'n2', newsArt: 'unbekannt' }]),
+    );
+    expect(loadNewsScreenings()).toEqual([gueltig]);
+  });
+
+  it('verwirft ungültige Schlagzeilen innerhalb eines sonst gültigen Eintrags', () => {
+    const validHeadline = gueltig.schlagzeilen[0];
+    localStorage.setItem(
+      'trade-rechner:news-screenings',
+      JSON.stringify([{ ...gueltig, schlagzeilen: [validHeadline, null, { titel: 1 }] }]),
+    );
+    expect(loadNewsScreenings()).toEqual([{ ...gueltig, schlagzeilen: [validHeadline] }]);
   });
 });

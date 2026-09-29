@@ -1,11 +1,13 @@
+import { istGueltigeGespeicherteSchlagzeile, istGueltigerNewsScreeningEintrag } from './newsScreening';
 import { STANDARD_EINSTELLUNGEN, type ScannerEinstellungen } from './scanner/regeln';
-import type { Calculation, Handelsplan, Profile, ScreeningEintrag } from './types';
+import type { Calculation, Handelsplan, NewsScreeningEintrag, Profile, ScreeningEintrag } from './types';
 
 const PROFILE_KEY = 'trade-rechner:profile';
 const CALCULATIONS_KEY = 'trade-rechner:calculations';
 const HANDELSPLAN_KEY = 'trade-rechner:handelsplan';
 const SCREENINGS_KEY = 'trade-rechner:screenings';
 const SCANNER_KEY = 'trade-rechner:scanner-einstellungen';
+const NEWS_SCREENINGS_KEY = 'trade-rechner:news-screenings';
 
 const DEFAULT_PROFILE: Profile = {
   depotgroesse: 0,
@@ -126,6 +128,28 @@ export function loadScannerEinstellungen(): ScannerEinstellungen {
 export function saveScannerEinstellungen(einstellungen: ScannerEinstellungen): void {
   try {
     localStorage.setItem(SCANNER_KEY, JSON.stringify(einstellungen));
+  } catch {
+    // siehe saveProfile
+  }
+}
+
+export function loadNewsScreenings(): NewsScreeningEintrag[] {
+  try {
+    const raw = localStorage.getItem(NEWS_SCREENINGS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(istGueltigerNewsScreeningEintrag)
+      .map((eintrag) => ({ ...eintrag, schlagzeilen: eintrag.schlagzeilen.filter(istGueltigeGespeicherteSchlagzeile) }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveNewsScreenings(eintraege: NewsScreeningEintrag[]): void {
+  try {
+    localStorage.setItem(NEWS_SCREENINGS_KEY, JSON.stringify(eintraege));
   } catch {
     // siehe saveProfile
   }

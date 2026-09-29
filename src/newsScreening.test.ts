@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { analysiereGap, beurteileNewsTrade, type GapAnalyse, NEWS_ARTEN, verschiebeDatum } from './newsScreening';
+import {
+  analysiereGap,
+  beurteileNewsTrade,
+  fuegeNewsScreeningEin,
+  type GapAnalyse,
+  istGueltigeGespeicherteSchlagzeile,
+  istGueltigerNewsScreeningEintrag,
+  NEWS_ARTEN,
+  verschiebeDatum,
+} from './newsScreening';
 import { ValidationError } from './positionSize';
 import type { Tageskerze } from './twelveDataClient';
+import type { NewsScreeningEintrag } from './types';
 
 function kerze(datum: string, open: number, high: number, low: number, close: number): Tageskerze {
   return { datum, open, high, low, close };
@@ -152,5 +162,118 @@ describe('beurteileNewsTrade', () => {
       'Gap zu 80.0 % geschlossen (> 50 %) – kein Einstieg.',
       'Keine News-Art ausgewählt.',
     ]);
+  });
+});
+
+function eintrag(id: string, symbol: string, gapDatum: string): NewsScreeningEintrag {
+  return {
+    id,
+    symbol,
+    gapDatum,
+    gap: {
+      richtung: 'long',
+      vortagDatum: '2026-09-10',
+      vortagSchluss: 100,
+      gapTagOpen: 108,
+      gapProzent: 8,
+      gapSchliessungProzent: 37.5,
+      extremSeitGap: 105,
+    },
+    newsArt: 'quartalsbericht',
+    notiz: '',
+    schlagzeilen: [],
+    gespeichertAm: '2026-09-29T10:00:00.000Z',
+    zuletztGeprueftAm: '2026-09-29T10:00:00.000Z',
+  };
+}
+
+describe('fuegeNewsScreeningEin', () => {
+  it('fügt in eine leere Liste ein', () => {
+    expect(fuegeNewsScreeningEin([], eintrag('1', 'AAPL', '2026-09-11'))).toEqual([eintrag('1', 'AAPL', '2026-09-11')]);
+  });
+
+  it('stellt einen neuen Eintrag an den Anfang', () => {
+    const liste = [eintrag('1', 'AAPL', '2026-09-11')];
+    const ergebnis = fuegeNewsScreeningEin(liste, eintrag('2', 'MSFT', '2026-09-12'));
+    expect(ergebnis.map((e) => e.id)).toEqual(['2', '1']);
+  });
+
+  it('ersetzt einen Eintrag mit gleichem Kürzel und Gap-Datum und stellt ihn nach vorne', () => {
+    const liste = [eintrag('1', 'MSFT', '2026-09-12'), eintrag('2', 'AAPL', '2026-09-11')];
+    const ergebnis = fuegeNewsScreeningEin(liste, eintrag('3', 'AAPL', '2026-09-11'));
+    expect(ergebnis.map((e) => e.id)).toEqual(['3', '1']);
+  });
+
+  it('behält Einträge mit gleichem Kürzel, aber anderem Gap-Datum', () => {
+    const liste = [eintrag('1', 'AAPL', '2026-09-11')];
+    const ergebnis = fuegeNewsScreeningEin(liste, eintrag('2', 'AAPL', '2026-09-14'));
+    expect(ergebnis.map((e) => e.id)).toEqual(['2', '1']);
+  });
+
+  it('behält beim Ersetzen die alte Notiz, wenn die neue Notiz leer ist', () => {
+    const liste = [{ ...eintrag('1', 'AAPL', '2026-09-11'), notiz: 'alt' }];
+    const ergebnis = fuegeNewsScreeningEin(liste, { ...eintrag('2', 'AAPL', '2026-09-11'), notiz: '' });
+    expect(ergebnis[0].notiz).toBe('alt');
+  });
+
+  it('verwendet beim Ersetzen die neue Notiz, wenn sie nicht leer ist', () => {
+    const liste = [{ ...eintrag('1', 'AAPL', '2026-09-11'), notiz: 'alt' }];
+    const ergebnis = fuegeNewsScreeningEin(liste, { ...eintrag('2', 'AAPL', '2026-09-11'), notiz: 'neu' });
+    expect(ergebnis[0].notiz).toBe('neu');
+  });
+});
+
+describe('istGueltigerNewsScreeningEintrag', () => {
+  it('akzeptiert einen vollständigen Eintrag', () => {
+    expect(istGueltigerNewsScreeningEintrag(eintrag('1', 'AAPL', '2026-09-11'))).toBe(true);
+  });
+
+  it('lehnt null ab', () => {
+    expect(istGueltigerNewsScreeningEintrag(null)).toBe(false);
+  });
+
+  it('lehnt einen Eintrag ohne Kürzel ab', () => {
+    const { symbol: _symbol, ...ohneSymbol } = eintrag('1', 'AAPL', '2026-09-11');
+    expect(istGueltigerNewsScreeningEintrag(ohneSymbol)).toBe(false);
+  });
+
+  it('lehnt eine unbekannte News-Art ab', () => {
+    expect(istGueltigerNewsScreeningEintrag({ ...eintrag('1', 'AAPL', '2026-09-11'), newsArt: 'gerücht' })).toBe(false);
+  });
+
+  it('lehnt nicht-numerische Gap-Werte ab', () => {
+    const basis = eintrag('1', 'AAPL', '2026-09-11');
+    expect(istGueltigerNewsScreeningEintrag({ ...basis, gap: { ...basis.gap, gapProzent: Number.NaN } })).toBe(false);
+    expect(istGueltigerNewsScreeningEintrag({ ...basis, gap: { ...basis.gap, gapProzent: '8' } })).toBe(false);
+  });
+
+  it('lehnt Schlagzeilen ab, die kein Array sind', () => {
+    expect(istGueltigerNewsScreeningEintrag({ ...eintrag('1', 'AAPL', '2026-09-11'), schlagzeilen: 'x' })).toBe(false);
+  });
+});
+
+describe('istGueltigeGespeicherteSchlagzeile', () => {
+  const gueltigeSchlagzeile = {
+    zeitpunkt: '2026-09-11T12:00:00.000Z',
+    titel: 'Titel',
+    quelle: 'Reuters',
+    url: 'https://example.com',
+  };
+
+  it('akzeptiert eine vollständige Schlagzeile', () => {
+    expect(istGueltigeGespeicherteSchlagzeile(gueltigeSchlagzeile)).toBe(true);
+  });
+
+  it('lehnt null ab', () => {
+    expect(istGueltigeGespeicherteSchlagzeile(null)).toBe(false);
+  });
+
+  it('lehnt eine Schlagzeile ohne url ab', () => {
+    const { url: _url, ...ohneUrl } = gueltigeSchlagzeile;
+    expect(istGueltigeGespeicherteSchlagzeile(ohneUrl)).toBe(false);
+  });
+
+  it('lehnt einen numerischen Titel ab', () => {
+    expect(istGueltigeGespeicherteSchlagzeile({ ...gueltigeSchlagzeile, titel: 1 })).toBe(false);
   });
 });

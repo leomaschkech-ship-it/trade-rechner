@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { type Schlagzeile, ladeSchlagzeilen } from '../finnhubClient';
 import type { TradeStore } from '../hooks/useTradeStore';
+import { NewsScreeningListe } from './NewsScreeningListe';
 import {
   type GapAnalyse,
   MAX_GAP_SCHLIESSUNG_PROZENT,
@@ -24,6 +25,7 @@ interface Pruefergebnis {
   symbol: string;
   gapDatum: string;
   gap: GapAnalyse;
+  geprueftAm: string; // ISO-8601
 }
 
 export function NewsScreeningView({ store }: { store: TradeStore }) {
@@ -35,6 +37,8 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
   const [schlagzeilen, setSchlagzeilen] = useState<Schlagzeile[] | null>(null);
   const [newsFehler, setNewsFehler] = useState<string | null>(null);
   const [newsArt, setNewsArt] = useState<NewsArt | ''>('');
+  const [notiz, setNotiz] = useState('');
+  const [gespeichertMeldung, setGespeichertMeldung] = useState(false);
 
   const { twelveDataApiKey, finnhubApiKey } = store.profile;
   const symbol = symbolEingabe.trim().toUpperCase();
@@ -50,11 +54,13 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
     setSchlagzeilen(null);
     setNewsFehler(null);
     setNewsArt('');
+    setNotiz('');
+    setGespeichertMeldung(false);
 
     try {
       const kerzen = await ladeTageskerzen(symbol, verschiebeDatum(gapDatum, -10), twelveDataApiKey);
       const gap = analysiereGap(kerzen, gapDatum);
-      setErgebnis({ symbol, gapDatum, gap });
+      setErgebnis({ symbol, gapDatum, gap, geprueftAm: new Date().toISOString() });
 
       if (finnhubApiKey !== '') {
         try {
@@ -68,6 +74,28 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
     } finally {
       setPruefend(false);
     }
+  }
+
+  function handleSpeichern() {
+    if (!ergebnis || newsArt === '') return;
+    store.speichereNewsScreening({
+      id: crypto.randomUUID(),
+      symbol: ergebnis.symbol,
+      gapDatum: ergebnis.gapDatum,
+      gap: ergebnis.gap,
+      newsArt,
+      notiz: notiz.trim(),
+      schlagzeilen: (schlagzeilen ?? []).map((zeile) => ({
+        zeitpunkt: zeile.zeitpunkt.toISOString(),
+        titel: zeile.titel,
+        quelle: zeile.quelle,
+        url: zeile.url,
+      })),
+      gespeichertAm: new Date().toISOString(),
+      zuletztGeprueftAm: ergebnis.geprueftAm,
+    });
+    setGespeichertMeldung(true);
+    setTimeout(() => setGespeichertMeldung(false), 2000);
   }
 
   const urteil = ergebnis ? beurteileNewsTrade(ergebnis.gap, newsArt === '' ? null : newsArt) : null;
@@ -157,6 +185,14 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
                   ))}
                 </select>
               </label>
+              <label>
+                Notiz (optional)
+                <textarea value={notiz} onChange={(event) => setNotiz(event.target.value)} />
+              </label>
+              <button type="button" onClick={handleSpeichern} disabled={newsArt === ''}>
+                Speichern
+              </button>
+              {gespeichertMeldung && <p className="calc-form__saved">Gespeichert.</p>}
             </form>
           </li>
 
@@ -181,6 +217,7 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
           </li>
         </ul>
       )}
+      <NewsScreeningListe store={store} />
     </div>
   );
 }

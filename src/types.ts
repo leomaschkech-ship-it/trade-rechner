@@ -1,3 +1,5 @@
+import type { GapAnalyse, NewsArt } from './newsScreening';
+
 export type Waehrung = '€' | '$';
 
 export interface Profile {
@@ -88,4 +90,23 @@ export interface ScreeningEintrag {
   setupKriterien: Record<string, boolean>;
 
   freitext?: string;
+}
+
+export interface GespeicherteSchlagzeile {
+  zeitpunkt: string; // ISO-8601
+  titel: string;
+  quelle: string;
+  url: string;
+}
+
+export interface NewsScreeningEintrag {
+  id: string;
+  symbol: string;
+  gapDatum: string; // 'YYYY-MM-DD'
+  gap: GapAnalyse;
+  newsArt: NewsArt;
+  notiz: string;
+  schlagzeilen: GespeicherteSchlagzeile[];
+  gespeichertAm: string; // ISO-8601
+  zuletztGeprueftAm: string; // ISO-8601
 }
