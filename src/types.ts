@@ -1,4 +1,4 @@
-import type { GapAnalyse, NewsArt } from './newsScreening';
+import type { GapAnalyse, LiquiditaetsAnalyse, NewsArt } from './newsScreening';
 
 export type Waehrung = '€' | '$';
 
@@ -109,4 +109,5 @@ export interface NewsScreeningEintrag {
   schlagzeilen: GespeicherteSchlagzeile[];
   gespeichertAm: string; // ISO-8601
   zuletztGeprueftAm: string; // ISO-8601
+  liquiditaet?: LiquiditaetsAnalyse | null; // fehlt bei Einträgen von vor der Liquiditätsprüfung
 }

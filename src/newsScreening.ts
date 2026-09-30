@@ -1,5 +1,5 @@
 import { ValidationError } from './positionSize';
-import type { Tageskerze } from './twelveDataClient';
+import type { Minutenkerze, Tageskerze } from './twelveDataClient';
 import type { GespeicherteSchlagzeile, NewsScreeningEintrag, Richtung } from './types';
 
 export const MIN_GAP_PROZENT = 5;
@@ -106,7 +106,11 @@ export interface NewsUrteil {
   gruende: string[]; // leer bei handelbar
 }
 
-export function beurteileNewsTrade(gap: GapAnalyse, newsArt: NewsArt | null): NewsUrteil {
+export function beurteileNewsTrade(
+  gap: GapAnalyse,
+  newsArt: NewsArt | null,
+  liquiditaet: LiquiditaetsAnalyse | null,
+): NewsUrteil {
   const gruende: string[] = [];
 
   if (gap.gapProzent < MIN_GAP_PROZENT) {
@@ -121,6 +125,13 @@ export function beurteileNewsTrade(gap: GapAnalyse, newsArt: NewsArt | null): Ne
     gruende.push('Keine News-Art ausgewählt.');
   } else if (newsArt === 'keine-relevante-news') {
     gruende.push('News als nicht handelsrelevant eingestuft.');
+  }
+  if (liquiditaet === null) {
+    gruende.push('Liquidität nicht geprüft.');
+  } else if (liquiditaet.maxMinutenOhneVolumen > MAX_MINUTEN_OHNE_VOLUMEN) {
+    gruende.push(
+      `Zu wenig Liquidität (${liquiditaet.maxMinutenOhneVolumen} Minuten ohne Volumen am Stück) – kein Einstieg.`,
+    );
   }
 
   return { handelbar: gruende.length === 0, gruende };
@@ -139,6 +150,18 @@ export function fuegeNewsScreeningEin(
 
 function istEndlicheZahl(wert: unknown): wert is number {
   return typeof wert === 'number' && Number.isFinite(wert);
+}
+
+function istGueltigeLiquiditaetsAnalyse(wert: unknown): wert is LiquiditaetsAnalyse {
+  if (typeof wert !== 'object' || wert === null) return false;
+  const l = wert as Record<string, unknown>;
+  return (
+    istEndlicheZahl(l.maxMinutenOhneVolumen) &&
+    l.maxMinutenOhneVolumen >= 0 &&
+    (l.laengsteLueckeStart === null || typeof l.laengsteLueckeStart === 'string') &&
+    Array.isArray(l.gepruefteTage) &&
+    l.gepruefteTage.every((tag) => typeof tag === 'string')
+  );
 }
 
 function istGueltigeGapAnalyse(wert: unknown): wert is GapAnalyse {
@@ -178,6 +201,69 @@ export function istGueltigerNewsScreeningEintrag(wert: unknown): wert is NewsScr
     typeof e.zuletztGeprueftAm === 'string' &&
     NEWS_ARTEN.some((art) => art.id === e.newsArt) &&
     istGueltigeGapAnalyse(e.gap) &&
-    Array.isArray(e.schlagzeilen)
+    Array.isArray(e.schlagzeilen) &&
+    (e.liquiditaet === undefined || e.liquiditaet === null || istGueltigeLiquiditaetsAnalyse(e.liquiditaet))
   );
+}
+
+export const MAX_MINUTEN_OHNE_VOLUMEN = 3;
+export const LIQUIDITAET_TAGE = 5;
+const HANDELSBEGINN_MINUTE = 9 * 60 + 30; // 09:30 Börsenzeit
+
+export interface LiquiditaetsAnalyse {
+  maxMinutenOhneVolumen: number;
+  laengsteLueckeStart: string | null; // 'YYYY-MM-DD HH:MM' der ersten Minute der längsten Folge
+  gepruefteTage: string[]; // 'YYYY-MM-DD', aufsteigend
+}
+
+function minuteDesTages(zeitpunkt: string): number {
+  const [h, m] = zeitpunkt.slice(11, 16).split(':').map(Number);
+  return h * 60 + m;
+}
+
+function formatMinute(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+export function analysiereLiquiditaet(kerzen: Minutenkerze[]): LiquiditaetsAnalyse {
+  if (kerzen.length === 0) {
+    throw new ValidationError('Keine Minutenkerzen für die Liquiditätsprüfung vorhanden.');
+  }
+
+  const proTag = new Map<string, { gehandelt: Set<number>; letzteMinute: number }>();
+  for (const kerze of kerzen) {
+    const datum = kerze.zeitpunkt.slice(0, 10);
+    const minute = minuteDesTages(kerze.zeitpunkt);
+    if (!Number.isFinite(minute)) {
+      throw new ValidationError(`Ungültiger Zeitstempel in den Minutenkerzen: ${kerze.zeitpunkt}.`);
+    }
+    const tag = proTag.get(datum) ?? { gehandelt: new Set<number>(), letzteMinute: minute };
+    if (kerze.volumen > 0) tag.gehandelt.add(minute);
+    tag.letzteMinute = Math.max(tag.letzteMinute, minute);
+    proTag.set(datum, tag);
+  }
+
+  const gepruefteTage = [...proTag.keys()].sort().slice(-LIQUIDITAET_TAGE);
+  let maxMinutenOhneVolumen = 0;
+  let laengsteLueckeStart: string | null = null;
+
+  for (const datum of gepruefteTage) {
+    const { gehandelt, letzteMinute } = proTag.get(datum)!;
+    let lauf = 0;
+    let laufStart = HANDELSBEGINN_MINUTE;
+    for (let minute = HANDELSBEGINN_MINUTE; minute <= letzteMinute; minute++) {
+      if (gehandelt.has(minute)) {
+        lauf = 0;
+        continue;
+      }
+      if (lauf === 0) laufStart = minute;
+      lauf++;
+      if (lauf > maxMinutenOhneVolumen) {
+        maxMinutenOhneVolumen = lauf;
+        laengsteLueckeStart = `${datum} ${formatMinute(laufStart)}`;
+      }
+    }
+  }
+
+  return { maxMinutenOhneVolumen, laengsteLueckeStart, gepruefteTage };
 }

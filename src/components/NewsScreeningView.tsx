@@ -4,15 +4,18 @@ import type { TradeStore } from '../hooks/useTradeStore';
 import { NewsScreeningListe } from './NewsScreeningListe';
 import {
   type GapAnalyse,
+  type LiquiditaetsAnalyse,
   MAX_GAP_SCHLIESSUNG_PROZENT,
+  MAX_MINUTEN_OHNE_VOLUMEN,
   MIN_GAP_PROZENT,
   NEWS_ARTEN,
   type NewsArt,
   analysiereGap,
+  analysiereLiquiditaet,
   beurteileNewsTrade,
   verschiebeDatum,
 } from '../newsScreening';
-import { ladeTageskerzen } from '../twelveDataClient';
+import { ladeMinutenkerzen, ladeTageskerzen } from '../twelveDataClient';
 
 function heuteLokal(): string {
   const jetzt = new Date();
@@ -39,6 +42,8 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
   const [newsArt, setNewsArt] = useState<NewsArt | ''>('');
   const [notiz, setNotiz] = useState('');
   const [gespeichertMeldung, setGespeichertMeldung] = useState(false);
+  const [liquiditaet, setLiquiditaet] = useState<LiquiditaetsAnalyse | null>(null);
+  const [liquiditaetsFehler, setLiquiditaetsFehler] = useState<string | null>(null);
 
   const { twelveDataApiKey, finnhubApiKey } = store.profile;
   const symbol = symbolEingabe.trim().toUpperCase();
@@ -53,6 +58,8 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
     setErgebnis(null);
     setSchlagzeilen(null);
     setNewsFehler(null);
+    setLiquiditaet(null);
+    setLiquiditaetsFehler(null);
     setNewsArt('');
     setNotiz('');
     setGespeichertMeldung(false);
@@ -62,13 +69,24 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
       const gap = analysiereGap(kerzen, gapDatum);
       setErgebnis({ symbol, gapDatum, gap, geprueftAm: new Date().toISOString() });
 
-      if (finnhubApiKey !== '') {
+      const liquiditaetsAufgabe = (async () => {
+        try {
+          setLiquiditaet(analysiereLiquiditaet(await ladeMinutenkerzen(symbol, twelveDataApiKey)));
+        } catch (liquiditaetsError) {
+          setLiquiditaetsFehler(
+            liquiditaetsError instanceof Error ? liquiditaetsError.message : 'Unbekannter Fehler.',
+          );
+        }
+      })();
+      const newsAufgabe = (async () => {
+        if (finnhubApiKey === '') return;
         try {
           setSchlagzeilen(await ladeSchlagzeilen(symbol, gap.vortagDatum, gapDatum, finnhubApiKey));
         } catch (newsError) {
           setNewsFehler(newsError instanceof Error ? newsError.message : 'Schlagzeilen konnten nicht geladen werden.');
         }
-      }
+      })();
+      await Promise.all([liquiditaetsAufgabe, newsAufgabe]);
     } catch (error) {
       setFehler(`${symbol}: ${error instanceof Error ? error.message : 'Unbekannter Fehler.'}`);
     } finally {
@@ -93,12 +111,13 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
       })),
       gespeichertAm: new Date().toISOString(),
       zuletztGeprueftAm: ergebnis.geprueftAm,
+      liquiditaet,
     });
     setGespeichertMeldung(true);
     setTimeout(() => setGespeichertMeldung(false), 2000);
   }
 
-  const urteil = ergebnis ? beurteileNewsTrade(ergebnis.gap, newsArt === '' ? null : newsArt) : null;
+  const urteil = ergebnis ? beurteileNewsTrade(ergebnis.gap, newsArt === '' ? null : newsArt, liquiditaet) : null;
 
   return (
     <div className="news-screening-view">
@@ -149,7 +168,23 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
                 Gap-Schließung {ergebnis.gap.gapSchliessungProzent.toFixed(1)} % (≤ {MAX_GAP_SCHLIESSUNG_PROZENT} %):{' '}
                 {ergebnis.gap.gapSchliessungProzent <= MAX_GAP_SCHLIESSUNG_PROZENT ? '✅' : '❌'}
               </span>
+              {liquiditaet && (
+                <span className="watchlist-list__badge">
+                  Liquidität: max. {liquiditaet.maxMinutenOhneVolumen} Min. ohne Volumen (≤ {MAX_MINUTEN_OHNE_VOLUMEN}):{' '}
+                  {liquiditaet.maxMinutenOhneVolumen <= MAX_MINUTEN_OHNE_VOLUMEN ? '✅' : '❌'}
+                </span>
+              )}
             </div>
+            {liquiditaet?.laengsteLueckeStart && (
+              <p>
+                Längste Lücke ab {liquiditaet.laengsteLueckeStart} – kann auch ein Handelsstopp sein, im Minutenchart
+                prüfen.
+              </p>
+            )}
+            {pruefend && !liquiditaet && !liquiditaetsFehler && <p>Liquidität wird geprüft …</p>}
+            {liquiditaetsFehler && (
+              <p className="calc-form__error">Liquidität konnte nicht geprüft werden: {liquiditaetsFehler}</p>
+            )}
             <p>Je weniger die Aktie ins Gap zurückläuft, desto interessanter für den Einstieg.</p>
           </li>
 
@@ -189,7 +224,7 @@ export function NewsScreeningView({ store }: { store: TradeStore }) {
                 Notiz (optional)
                 <textarea value={notiz} onChange={(event) => setNotiz(event.target.value)} />
               </label>
-              <button type="button" onClick={handleSpeichern} disabled={newsArt === ''}>
+              <button type="button" onClick={handleSpeichern} disabled={newsArt === '' || pruefend}>
                 Speichern
               </button>
               {gespeichertMeldung && <p className="calc-form__saved">Gespeichert.</p>}

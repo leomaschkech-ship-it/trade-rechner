@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import type { TradeStore } from '../hooks/useTradeStore';
 import {
+  type LiquiditaetsAnalyse,
   MAX_GAP_SCHLIESSUNG_PROZENT,
+  MAX_MINUTEN_OHNE_VOLUMEN,
   MIN_GAP_PROZENT,
   NEWS_ARTEN,
   analysiereGap,
+  analysiereLiquiditaet,
   beurteileNewsTrade,
   verschiebeDatum,
 } from '../newsScreening';
-import { ladeTageskerzen } from '../twelveDataClient';
+import { ladeMinutenkerzen, ladeTageskerzen } from '../twelveDataClient';
 import type { NewsScreeningEintrag } from '../types';
 
 function formatZeitpunkt(iso: string): string {
@@ -46,7 +49,17 @@ export function NewsScreeningListe({ store }: { store: TradeStore }) {
     try {
       const kerzen = await ladeTageskerzen(eintrag.symbol, verschiebeDatum(eintrag.gapDatum, -10), apiKey);
       const gap = analysiereGap(kerzen, eintrag.gapDatum);
-      store.updateNewsScreening(eintrag.id, { gap, zuletztGeprueftAm: new Date().toISOString() });
+      let liquiditaet: LiquiditaetsAnalyse | null = null;
+      let liquiditaetsFehler: string | null = null;
+      try {
+        liquiditaet = analysiereLiquiditaet(await ladeMinutenkerzen(eintrag.symbol, apiKey));
+      } catch (liquiditaetsError) {
+        liquiditaetsFehler = `Liquidität konnte nicht geprüft werden: ${
+          liquiditaetsError instanceof Error ? liquiditaetsError.message : 'Unbekannter Fehler.'
+        }`;
+      }
+      store.updateNewsScreening(eintrag.id, { gap, liquiditaet, zuletztGeprueftAm: new Date().toISOString() });
+      if (liquiditaetsFehler) setzeFehler(eintrag.id, liquiditaetsFehler);
     } catch (error) {
       setzeFehler(eintrag.id, error instanceof Error ? error.message : 'Unbekannter Fehler.');
     } finally {
@@ -71,7 +84,7 @@ export function NewsScreeningListe({ store }: { store: TradeStore }) {
       <h2>Gespeichert</h2>
       <ul className="calc-list">
         {store.newsScreenings.map((eintrag) => {
-          const urteil = beurteileNewsTrade(eintrag.gap, eintrag.newsArt);
+          const urteil = beurteileNewsTrade(eintrag.gap, eintrag.newsArt, eintrag.liquiditaet ?? null);
           const pruefend = pruefendIds.includes(eintrag.id);
           const fehler = fehlerProId[eintrag.id];
           const bearbeitet = bearbeiteteNotiz?.id === eintrag.id;
@@ -92,7 +105,20 @@ export function NewsScreeningListe({ store }: { store: TradeStore }) {
                   Schließung {eintrag.gap.gapSchliessungProzent.toFixed(1)} %:{' '}
                   {eintrag.gap.gapSchliessungProzent <= MAX_GAP_SCHLIESSUNG_PROZENT ? '✅' : '❌'}
                 </span>
+                <span className="watchlist-list__badge">
+                  {eintrag.liquiditaet
+                    ? `Liquidität: max. ${eintrag.liquiditaet.maxMinutenOhneVolumen} Min. ohne Volumen: ${
+                        eintrag.liquiditaet.maxMinutenOhneVolumen <= MAX_MINUTEN_OHNE_VOLUMEN ? '✅' : '❌'
+                      }`
+                    : 'Liquidität: nicht geprüft'}
+                </span>
               </div>
+              {eintrag.liquiditaet?.laengsteLueckeStart && (
+                <p>
+                  Längste Lücke ab {eintrag.liquiditaet.laengsteLueckeStart} – kann auch ein Handelsstopp sein, im
+                  Minutenchart prüfen.
+                </p>
+              )}
               <p>News-Art: {newsArtLabel(eintrag)}</p>
               <p>
                 Urteil:{' '}
@@ -148,7 +174,7 @@ export function NewsScreeningListe({ store }: { store: TradeStore }) {
               {fehler && <p className="calc-form__error">{fehler}</p>}
 
               <div className="calc-list__actions">
-                <button type="button" onClick={() => handleNeuPruefen(eintrag)} disabled={pruefend}>
+                <button type="button" onClick={() => handleNeuPruefen(eintrag)} disabled={pruefendIds.length > 0}>
                   {pruefend ? 'Prüfe …' : 'Neu prüfen'}
                 </button>
                 {!bearbeitet && (
