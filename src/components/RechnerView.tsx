@@ -6,6 +6,8 @@ import { ResultCard } from './ResultCard';
 
 export function RechnerView({ store }: { store: TradeStore }) {
   const [richtung, setRichtung] = useState<Richtung>('long');
+  const [symbolEingabe, setSymbolEingabe] = useState('');
+  const symbol = symbolEingabe.trim().toUpperCase();
   const [depotgroesse, setDepotgroesse] = useState(String(store.profile.depotgroesse || ''));
   const [risikoProzent, setRisikoProzent] = useState(String(store.profile.standardRisikoProzent || ''));
   const [limitPuffer, setLimitPuffer] = useState(String(store.profile.standardLimitPuffer || ''));
@@ -38,7 +40,7 @@ export function RechnerView({ store }: { store: TradeStore }) {
   }
 
   function handleSave() {
-    if (!result || einstiegLimit === null) return;
+    if (!result || einstiegLimit === null || symbol === '') return;
     store.addCalculation({
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
@@ -53,7 +55,8 @@ export function RechnerView({ store }: { store: TradeStore }) {
       tatsaechlichesRisiko: result.tatsaechlichesRisiko,
       limitPufferProzent: Number(limitPuffer),
       einstiegLimit,
-      status: 'offen',
+      status: 'geplant',
+      symbol,
     });
     setSavedMessage(true);
     setTimeout(() => setSavedMessage(false), 2000);
@@ -81,6 +84,15 @@ export function RechnerView({ store }: { store: TradeStore }) {
       </div>
 
       <form className="calc-form" onSubmit={(event) => event.preventDefault()}>
+        <label>
+          Kürzel
+          <input
+            type="text"
+            placeholder="z.B. NU"
+            value={symbolEingabe}
+            onChange={(event) => setSymbolEingabe(event.target.value)}
+          />
+        </label>
         <label>
           Depotgröße ({store.profile.waehrung})
           <input
@@ -142,8 +154,9 @@ export function RechnerView({ store }: { store: TradeStore }) {
           einstiegLimit={einstiegLimit}
         />
       )}
+      {result && symbol === '' && <p className="calc-form__error">Kürzel eingeben, um zu speichern.</p>}
       {result && (
-        <button type="button" onClick={handleSave}>
+        <button type="button" onClick={handleSave} disabled={symbol === ''}>
           Speichern
         </button>
       )}

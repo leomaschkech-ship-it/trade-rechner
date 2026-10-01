@@ -133,6 +133,71 @@ describe('loadCalculations', () => {
     localStorage.setItem('trade-rechner:calculations', JSON.stringify([legacyEntry]));
     expect(loadCalculations()).toEqual([{ ...legacyEntry, status: 'offen' }]);
   });
+
+  it('speichert und lädt eine geplante Berechnung mit Kürzel unverändert', () => {
+    const calculations: Calculation[] = [
+      {
+        id: '2',
+        timestamp: '2026-10-01T10:00:00.000Z',
+        richtung: 'long',
+        depotgroesse: 56000,
+        risikoProzent: 0.5,
+        einstiegRoh: 100,
+        stopRoh: 95,
+        einstiegGepuffert: 100.1,
+        stopGepuffert: 94.905,
+        positionsgroesse: 53,
+        tatsaechlichesRisiko: 275.335,
+        limitPufferProzent: 0.3,
+        einstiegLimit: 100.4003,
+        status: 'geplant',
+        symbol: 'NU',
+      },
+      {
+        id: '3',
+        timestamp: '2026-10-01T11:00:00.000Z',
+        richtung: 'short',
+        depotgroesse: 56000,
+        risikoProzent: 0.5,
+        einstiegRoh: 50,
+        stopRoh: 52,
+        einstiegGepuffert: 49.95,
+        stopGepuffert: 52.052,
+        positionsgroesse: 133,
+        tatsaechlichesRisiko: 279.666,
+        limitPufferProzent: 0.3,
+        einstiegLimit: 49.80015,
+        status: 'verworfen',
+        symbol: 'XYZ',
+      },
+    ];
+    saveCalculations(calculations);
+    expect(loadCalculations()).toEqual(calculations);
+  });
+
+  it('lässt das Kürzel bei Legacy-Einträgen weg', () => {
+    localStorage.setItem(
+      'trade-rechner:calculations',
+      JSON.stringify([
+        {
+          id: '1',
+          timestamp: '2026-08-18T10:00:00.000Z',
+          richtung: 'long',
+          depotgroesse: 10000,
+          risikoProzent: 1,
+          einstiegRoh: 100,
+          stopRoh: 95,
+          einstiegGepuffert: 100.1,
+          stopGepuffert: 94.905,
+          positionsgroesse: 19,
+          tatsaechlichesRisiko: 98.705,
+        },
+      ]),
+    );
+    const [geladen] = loadCalculations();
+    expect(geladen.symbol).toBeUndefined();
+    expect(geladen.status).toBe('offen');
+  });
 });
 
 describe('loadHandelsplan', () => {

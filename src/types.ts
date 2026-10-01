@@ -13,7 +13,7 @@ export interface Profile {
 
 export type Richtung = 'long' | 'short';
 
-export type TradeStatus = 'offen' | 'geschlossen';
+export type TradeStatus = 'geplant' | 'offen' | 'geschlossen' | 'verworfen';
 
 export interface Calculation {
   id: string;
@@ -30,6 +30,7 @@ export interface Calculation {
   limitPufferProzent: number;
   einstiegLimit: number;
   status: TradeStatus;
+  symbol?: string; // fehlt bei Berechnungen von vor der Kürzel-Pflicht
   ausstiegPreis?: number;
   gebuehren?: number;
   freitext?: string;

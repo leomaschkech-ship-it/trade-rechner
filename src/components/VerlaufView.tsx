@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { calculateAbschluss } from '../journal';
 import { ValidationError } from '../positionSize';
+import { statusLabel } from '../tradeStatus';
 import type { TradeStore } from '../hooks/useTradeStore';
 import type { Calculation } from '../types';
 
@@ -69,17 +70,34 @@ export function VerlaufView({ store }: { store: TradeStore }) {
         {store.calculations.map((calculation) => (
           <li key={calculation.id} className="calc-list__item">
             <div className="calc-list__header">
+              <strong>{calculation.symbol ?? '—'}</strong>
               <span>{new Date(calculation.timestamp).toLocaleString('de-DE')}</span>
               <span className={`calc-list__richtung calc-list__richtung--${calculation.richtung}`}>
                 {calculation.richtung === 'long' ? 'Long' : 'Short'}
               </span>
+              <span className="watchlist-list__badge">{statusLabel(calculation.status)}</span>
             </div>
             <div className="calc-list__body">
-              <span>
-                Einstieg {calculation.einstiegRoh} → Stop {calculation.stopRoh}
-              </span>
-              <strong>{calculation.positionsgroesse} Stück</strong>
+              <span>Einstieg (Stop-Buy)</span>
+              <strong>{calculation.einstiegGepuffert.toFixed(3)}</strong>
             </div>
+            {calculation.einstiegLimit > 0 && (
+              <div className="calc-list__body">
+                <span>Limit</span>
+                <strong>{calculation.einstiegLimit.toFixed(3)}</strong>
+              </div>
+            )}
+            <div className="calc-list__body">
+              <span>Stop-Loss</span>
+              <strong>{calculation.stopGepuffert.toFixed(3)}</strong>
+            </div>
+            <div className="calc-list__body">
+              <span>Stück</span>
+              <strong>{calculation.positionsgroesse}</strong>
+            </div>
+            <p className="calc-list__freitext">
+              eingegeben: Einstieg {calculation.einstiegRoh} → Stop {calculation.stopRoh}
+            </p>
 
             {calculation.status === 'geschlossen' && (
               <div className="calc-list__abschluss">
@@ -150,6 +168,16 @@ export function VerlaufView({ store }: { store: TradeStore }) {
             )}
 
             <div className="calc-list__actions">
+              {calculation.status === 'geplant' && (
+                <>
+                  <button type="button" onClick={() => store.updateCalculation(calculation.id, { status: 'offen' })}>
+                    Eingestiegen
+                  </button>
+                  <button type="button" onClick={() => store.updateCalculation(calculation.id, { status: 'verworfen' })}>
+                    Verworfen
+                  </button>
+                </>
+              )}
               {calculation.status === 'offen' && closingId !== calculation.id && (
                 <button type="button" onClick={() => startClosing(calculation)}>
                   Trade abschließen
