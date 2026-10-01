@@ -8,9 +8,11 @@ export function RechnerView({ store }: { store: TradeStore }) {
   const [richtung, setRichtung] = useState<Richtung>('long');
   const [symbolEingabe, setSymbolEingabe] = useState('');
   const symbol = symbolEingabe.trim().toUpperCase();
-  const [depotgroesse, setDepotgroesse] = useState(String(store.profile.depotgroesse || ''));
-  const [risikoProzent, setRisikoProzent] = useState(String(store.profile.standardRisikoProzent || ''));
-  const [limitPuffer, setLimitPuffer] = useState(String(store.profile.standardLimitPuffer || ''));
+  // Depotgröße, Risiko und Limitpuffer kommen immer aus dem Profil und sind hier nicht editierbar.
+  const depotgroesse = store.profile.depotgroesse;
+  const risikoProzent = store.profile.standardRisikoProzent;
+  const limitPuffer = store.profile.standardLimitPuffer;
+  const profilVollstaendig = depotgroesse > 0 && risikoProzent > 0 && limitPuffer >= 0;
   const [einstiegRoh, setEinstiegRoh] = useState('');
   const [stopRoh, setStopRoh] = useState('');
   const [savedMessage, setSavedMessage] = useState(false);
@@ -19,19 +21,18 @@ export function RechnerView({ store }: { store: TradeStore }) {
   let einstiegLimit: number | null = null;
   let error: string | null = null;
 
-  const hasAllInputs =
-    depotgroesse !== '' && risikoProzent !== '' && limitPuffer !== '' && einstiegRoh !== '' && stopRoh !== '';
+  const hasAllInputs = profilVollstaendig && einstiegRoh !== '' && stopRoh !== '';
 
   if (hasAllInputs) {
     try {
       result = calculatePositionSize({
         richtung,
-        depotgroesse: Number(depotgroesse),
-        risikoProzent: Number(risikoProzent),
+        depotgroesse,
+        risikoProzent,
         einstiegRoh: Number(einstiegRoh),
         stopRoh: Number(stopRoh),
       });
-      einstiegLimit = calculateEinstiegslimit(result.einstiegGepuffert, richtung, Number(limitPuffer));
+      einstiegLimit = calculateEinstiegslimit(result.einstiegGepuffert, richtung, limitPuffer);
     } catch (err) {
       result = null;
       einstiegLimit = null;
@@ -45,15 +46,15 @@ export function RechnerView({ store }: { store: TradeStore }) {
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       richtung,
-      depotgroesse: Number(depotgroesse),
-      risikoProzent: Number(risikoProzent),
+      depotgroesse,
+      risikoProzent,
       einstiegRoh: Number(einstiegRoh),
       stopRoh: Number(stopRoh),
       einstiegGepuffert: result.einstiegGepuffert,
       stopGepuffert: result.stopGepuffert,
       positionsgroesse: result.positionsgroesse,
       tatsaechlichesRisiko: result.tatsaechlichesRisiko,
-      limitPufferProzent: Number(limitPuffer),
+      limitPufferProzent: limitPuffer,
       einstiegLimit,
       status: 'geplant',
       symbol,
@@ -65,6 +66,23 @@ export function RechnerView({ store }: { store: TradeStore }) {
   return (
     <div className="rechner-view">
       <h1>Trade-Rechner</h1>
+
+      <form className="calc-form" onSubmit={(event) => event.preventDefault()}>
+        <label>
+          Depotgröße ({store.profile.waehrung})
+          <input type="number" value={depotgroesse} readOnly disabled />
+        </label>
+        <label>
+          Risiko (%)
+          <input type="number" value={risikoProzent} readOnly disabled />
+        </label>
+        <label>
+          Limitpuffer (%)
+          <input type="number" value={limitPuffer} readOnly disabled />
+        </label>
+      </form>
+      <p className="calc-list__freitext">Aus dem Profil – ändern im Reiter Profil.</p>
+      {!profilVollstaendig && <p className="calc-form__error">Depotgröße und Risiko zuerst im Profil eintragen.</p>}
 
       <div className="richtung-toggle">
         <button
@@ -94,36 +112,6 @@ export function RechnerView({ store }: { store: TradeStore }) {
           />
         </label>
         <label>
-          Depotgröße ({store.profile.waehrung})
-          <input
-            type="number"
-            min={0}
-            step="any"
-            value={depotgroesse}
-            onChange={(event) => setDepotgroesse(event.target.value)}
-          />
-        </label>
-        <label>
-          Risiko (%)
-          <input
-            type="number"
-            min={0}
-            step="any"
-            value={risikoProzent}
-            onChange={(event) => setRisikoProzent(event.target.value)}
-          />
-        </label>
-        <label>
-          Limitpuffer (%)
-          <input
-            type="number"
-            min={0}
-            step="any"
-            value={limitPuffer}
-            onChange={(event) => setLimitPuffer(event.target.value)}
-          />
-        </label>
-        <label>
           Einstiegskurs
           <input
             type="number"
@@ -150,7 +138,7 @@ export function RechnerView({ store }: { store: TradeStore }) {
         <ResultCard
           result={result}
           waehrung={store.profile.waehrung}
-          depotgroesse={Number(depotgroesse)}
+          depotgroesse={depotgroesse}
           einstiegLimit={einstiegLimit}
         />
       )}
