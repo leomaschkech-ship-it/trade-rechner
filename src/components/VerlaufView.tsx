@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { berechneRisikoBisStop, calculateAbschluss } from '../journal';
 import { ValidationError } from '../positionSize';
 import { statusLabel } from '../tradeStatus';
+import type { AktuelleKurse } from '../hooks/useAktuelleKurse';
 import type { TradeStore } from '../hooks/useTradeStore';
 import type { Calculation } from '../types';
 
-export function VerlaufView({ store }: { store: TradeStore }) {
+function formatUhrzeit(datum: Date): string {
+  return datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+export function VerlaufView({ store, aktuelleKurse }: { store: TradeStore; aktuelleKurse: AktuelleKurse }) {
   const [closingId, setClosingId] = useState<string | null>(null);
   const [tatsaechlicherEinstieg, setTatsaechlicherEinstieg] = useState('');
   const [ausstiegPreis, setAusstiegPreis] = useState('');
@@ -18,7 +23,8 @@ export function VerlaufView({ store }: { store: TradeStore }) {
 
   function startEinstieg(calculation: Calculation) {
     setEinstiegId(calculation.id);
-    setEinstiegKurs(String(calculation.einstiegGepuffert));
+    const aktuellerKurs = calculation.symbol ? aktuelleKurse.kurse[calculation.symbol] : undefined;
+    setEinstiegKurs(String(aktuellerKurs ?? calculation.einstiegGepuffert));
     setEinstiegFehler(null);
   }
 
@@ -86,6 +92,12 @@ export function VerlaufView({ store }: { store: TradeStore }) {
     <div className="verlauf-view">
       <h1>Verlauf</h1>
       {store.calculations.length === 0 && <p>Noch keine Berechnungen gespeichert.</p>}
+      {aktuelleKurse.ohneApiKey && store.calculations.some((c) => c.status === 'geplant' || c.status === 'offen') && (
+        <p className="calc-list__freitext">Für aktuelle Kurse Twelve-Data-API-Key im Profil eintragen.</p>
+      )}
+      {aktuelleKurse.fehler && (
+        <p className="calc-list__freitext">Aktuelle Kurse nicht verfügbar: {aktuelleKurse.fehler}</p>
+      )}
       <ul className="calc-list">
         {store.calculations.map((calculation) => (
           <li key={calculation.id} className="calc-list__item">
@@ -97,6 +109,20 @@ export function VerlaufView({ store }: { store: TradeStore }) {
               </span>
               <span className="watchlist-list__badge">{statusLabel(calculation.status)}</span>
             </div>
+            {(calculation.status === 'geplant' || calculation.status === 'offen') &&
+              calculation.symbol &&
+              !aktuelleKurse.ohneApiKey && (
+                <div className="calc-list__body">
+                  <span>Aktueller Kurs</span>
+                  <strong>
+                    {aktuelleKurse.kurse[calculation.symbol] !== undefined && aktuelleKurse.stand
+                      ? `${aktuelleKurse.kurse[calculation.symbol].toFixed(3)} (Stand ${formatUhrzeit(aktuelleKurse.stand)})`
+                      : aktuelleKurse.stand || aktuelleKurse.fehler
+                        ? 'nicht verfügbar'
+                        : 'wird geladen …'}
+                  </strong>
+                </div>
+              )}
             <div className="calc-list__body">
               <span>Einstieg (Stop-Buy)</span>
               <strong>{calculation.einstiegGepuffert.toFixed(3)}</strong>

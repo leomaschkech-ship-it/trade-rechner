@@ -122,3 +122,45 @@ export async function ladeMinutenkerzen(symbol: string, apiKey: string): Promise
     })
     .reverse();
 }
+
+function leseKurs(eintrag: unknown): number | null {
+  if (typeof eintrag !== 'object' || eintrag === null) return null;
+  const kurs = Number((eintrag as { price?: unknown }).price);
+  return Number.isFinite(kurs) && kurs > 0 ? kurs : null;
+}
+
+// Twelve Data liefert bei einem Kürzel {price}, bei mehreren {KÜRZEL: {price}}; Kürzel mit Fehler fehlen im Ergebnis.
+export function parseKursAntwort(symbole: string[], data: unknown): Record<string, number> {
+  const kurse: Record<string, number> = {};
+  if (typeof data !== 'object' || data === null) return kurse;
+  if (symbole.length === 1) {
+    const kurs = leseKurs(data);
+    if (kurs !== null) kurse[symbole[0]] = kurs;
+    return kurse;
+  }
+  for (const symbol of symbole) {
+    const kurs = leseKurs((data as Record<string, unknown>)[symbol]);
+    if (kurs !== null) kurse[symbol] = kurs;
+  }
+  return kurse;
+}
+
+export async function ladeAktuelleKurse(symbole: string[], apiKey: string): Promise<Record<string, number>> {
+  if (symbole.length === 0) return {};
+  const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbole.join(','))}&apikey=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url);
+  if (response.status === 429) {
+    throw new TwelveDataError('Rate-Limit erreicht beim Abruf der aktuellen Kurse.', 429);
+  }
+  if (!response.ok) {
+    throw new TwelveDataError(`Fehler beim Abruf der aktuellen Kurse: HTTP ${response.status}.`);
+  }
+  const data: unknown = await response.json();
+  if (typeof data === 'object' && data !== null && (data as { status?: unknown }).status === 'error') {
+    throw new TwelveDataError(
+      `Twelve Data meldet einen Fehler: ${(data as { message?: string }).message ?? 'unbekannt'}.`,
+      (data as { code?: number }).code,
+    );
+  }
+  return parseKursAntwort(symbole, data);
+}
