@@ -36,3 +36,15 @@ export function calculateAbschluss(input: AbschlussInput): AbschlussResult {
 
   return { plEuro, plProzent, crv };
 }
+
+// Risiko einer offenen Position bis zum (gepufferten) Stop, ausgehend vom tatsächlichen Einstiegskurs.
+export function berechneRisikoBisStop(
+  richtung: Richtung,
+  tatsaechlicherEinstieg: number,
+  stopGepuffert: number,
+  positionsgroesse: number,
+): number {
+  if (!(tatsaechlicherEinstieg > 0)) throw new ValidationError('Tatsächlicher Einstieg muss positiv sein.');
+  const abstand = richtung === 'long' ? tatsaechlicherEinstieg - stopGepuffert : stopGepuffert - tatsaechlicherEinstieg;
+  return abstand * positionsgroesse;
+}

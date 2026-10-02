@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { calculateAbschluss } from '../journal';
+import { berechneRisikoBisStop, calculateAbschluss } from '../journal';
 import { ValidationError } from '../positionSize';
 import { statusLabel } from '../tradeStatus';
 import type { TradeStore } from '../hooks/useTradeStore';
@@ -12,6 +12,26 @@ export function VerlaufView({ store }: { store: TradeStore }) {
   const [gebuehren, setGebuehren] = useState('0');
   const [freitext, setFreitext] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [einstiegId, setEinstiegId] = useState<string | null>(null);
+  const [einstiegKurs, setEinstiegKurs] = useState('');
+  const [einstiegFehler, setEinstiegFehler] = useState<string | null>(null);
+
+  function startEinstieg(calculation: Calculation) {
+    setEinstiegId(calculation.id);
+    setEinstiegKurs(String(calculation.einstiegGepuffert));
+    setEinstiegFehler(null);
+  }
+
+  function confirmEinstieg(calculation: Calculation) {
+    const kurs = Number(einstiegKurs);
+    if (!(kurs > 0)) {
+      setEinstiegFehler('Einstiegskurs muss positiv sein.');
+      return;
+    }
+    store.updateCalculation(calculation.id, { status: 'offen', tatsaechlicherEinstieg: kurs });
+    setEinstiegId(null);
+    setEinstiegFehler(null);
+  }
 
   function handleClearAll() {
     if (store.calculations.length === 0) return;
@@ -22,7 +42,7 @@ export function VerlaufView({ store }: { store: TradeStore }) {
 
   function startClosing(calculation: Calculation) {
     setClosingId(calculation.id);
-    setTatsaechlicherEinstieg(String(calculation.einstiegGepuffert));
+    setTatsaechlicherEinstieg(String(calculation.tatsaechlicherEinstieg ?? calculation.einstiegGepuffert));
     setAusstiegPreis('');
     setGebuehren('0');
     setFreitext('');
@@ -81,6 +101,26 @@ export function VerlaufView({ store }: { store: TradeStore }) {
               <span>Einstieg (Stop-Buy)</span>
               <strong>{calculation.einstiegGepuffert.toFixed(3)}</strong>
             </div>
+            {calculation.status === 'offen' && calculation.tatsaechlicherEinstieg !== undefined && (
+              <>
+                <div className="calc-list__body">
+                  <span>Einstieg (tatsächlich)</span>
+                  <strong>{calculation.tatsaechlicherEinstieg.toFixed(3)}</strong>
+                </div>
+                <div className="calc-list__body">
+                  <span>Risiko bis Stop</span>
+                  <strong>
+                    {berechneRisikoBisStop(
+                      calculation.richtung,
+                      calculation.tatsaechlicherEinstieg,
+                      calculation.stopGepuffert,
+                      calculation.positionsgroesse,
+                    ).toFixed(2)}{' '}
+                    {store.profile.waehrung} (geplant {calculation.tatsaechlichesRisiko.toFixed(2)} {store.profile.waehrung})
+                  </strong>
+                </div>
+              </>
+            )}
             {calculation.einstiegLimit > 0 && (
               <div className="calc-list__body">
                 <span>Limit</span>
@@ -167,10 +207,34 @@ export function VerlaufView({ store }: { store: TradeStore }) {
               </div>
             )}
 
+            {calculation.status === 'geplant' && einstiegId === calculation.id && (
+              <div className="calc-form calc-list__abschluss-form">
+                <label>
+                  Zu welchem Kurs bist du eingestiegen?
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={einstiegKurs}
+                    onChange={(event) => setEinstiegKurs(event.target.value)}
+                  />
+                </label>
+                {einstiegFehler && <p className="calc-form__error">{einstiegFehler}</p>}
+                <div className="calc-list__abschluss-actions">
+                  <button type="button" onClick={() => confirmEinstieg(calculation)}>
+                    Bestätigen
+                  </button>
+                  <button type="button" onClick={() => setEinstiegId(null)}>
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="calc-list__actions">
-              {calculation.status === 'geplant' && (
+              {calculation.status === 'geplant' && einstiegId !== calculation.id && (
                 <>
-                  <button type="button" onClick={() => store.updateCalculation(calculation.id, { status: 'offen' })}>
+                  <button type="button" onClick={() => startEinstieg(calculation)}>
                     Eingestiegen
                   </button>
                   <button type="button" onClick={() => store.updateCalculation(calculation.id, { status: 'verworfen' })}>

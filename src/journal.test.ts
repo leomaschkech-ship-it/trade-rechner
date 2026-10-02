@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAbschluss } from './journal';
+import { berechneRisikoBisStop, calculateAbschluss } from './journal';
 import { ValidationError } from './positionSize';
 
 describe('calculateAbschluss — Long', () => {
@@ -148,5 +148,19 @@ describe('calculateAbschluss — Validierung', () => {
     expect(result.crv).toBe(0);
     expect(result.plEuro).toBeCloseTo(-5, 3);
     expect(result.plProzent).toBeCloseTo(-0.05, 3);
+  });
+});
+
+describe('berechneRisikoBisStop', () => {
+  it('berechnet das Risiko einer Long-Position aus tatsächlichem Einstieg und Stop', () => {
+    expect(berechneRisikoBisStop('long', 100.5, 94.905, 53)).toBeCloseTo(296.535, 6);
+  });
+
+  it('berechnet das Risiko einer Short-Position spiegelbildlich', () => {
+    expect(berechneRisikoBisStop('short', 49.8, 52.052, 133)).toBeCloseTo(299.516, 6);
+  });
+
+  it('wirft ValidationError bei nicht positivem Einstieg', () => {
+    expect(() => berechneRisikoBisStop('long', 0, 94.905, 53)).toThrow(ValidationError);
   });
 });
