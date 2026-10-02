@@ -10,6 +10,24 @@ function formatUhrzeit(datum: Date): string {
   return datum.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
+function mitVorzeichen(wert: number, nachkommastellen: number): string {
+  return `${wert > 0 ? '+' : ''}${wert.toFixed(nachkommastellen)}`;
+}
+
+// Zwischenstand einer offenen Position zum aktuellen Kurs, ohne Gebühren (gleiche Rechnung wie beim Abschluss).
+function offenerGewinn(calculation: Calculation, aktuellerKurs: number | undefined) {
+  if (aktuellerKurs === undefined || calculation.tatsaechlicherEinstieg === undefined) return null;
+  return calculateAbschluss({
+    richtung: calculation.richtung,
+    einstiegGepuffert: calculation.tatsaechlicherEinstieg,
+    positionsgroesse: calculation.positionsgroesse,
+    tatsaechlichesRisiko: calculation.tatsaechlichesRisiko,
+    depotgroesse: calculation.depotgroesse,
+    ausstiegPreis: aktuellerKurs,
+    gebuehren: 0,
+  });
+}
+
 export function VerlaufView({ store, aktuelleKurse }: { store: TradeStore; aktuelleKurse: AktuelleKurse }) {
   const [closingId, setClosingId] = useState<string | null>(null);
   const [tatsaechlicherEinstieg, setTatsaechlicherEinstieg] = useState('');
@@ -123,6 +141,23 @@ export function VerlaufView({ store, aktuelleKurse }: { store: TradeStore; aktue
                   </strong>
                 </div>
               )}
+            {calculation.status === 'offen' &&
+              (() => {
+                const zwischenstand = offenerGewinn(
+                  calculation,
+                  calculation.symbol ? aktuelleKurse.kurse[calculation.symbol] : undefined,
+                );
+                if (!zwischenstand) return null;
+                return (
+                  <div className="calc-list__body">
+                    <span>Aktueller Gewinn/Verlust</span>
+                    <strong className={zwischenstand.plEuro >= 0 ? 'calc-list__pl--positiv' : 'calc-list__pl--negativ'}>
+                      {mitVorzeichen(zwischenstand.plEuro, 2)} {store.profile.waehrung} (
+                      {mitVorzeichen(zwischenstand.plProzent, 2)} %, {mitVorzeichen(zwischenstand.crv, 2)} R)
+                    </strong>
+                  </div>
+                );
+              })()}
             <div className="calc-list__body">
               <span>Einstieg (Stop-Buy)</span>
               <strong>{calculation.einstiegGepuffert.toFixed(3)}</strong>
