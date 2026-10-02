@@ -17,7 +17,10 @@ function mitVorzeichen(wert: number, nachkommastellen: number): string {
 // Zwischenstand einer offenen Position zum aktuellen Kurs, ohne Gebühren (gleiche Rechnung wie beim Abschluss).
 function offenerGewinn(calculation: Calculation, aktuellerKurs: number | undefined) {
   if (aktuellerKurs === undefined || calculation.tatsaechlicherEinstieg === undefined) return null;
-  return calculateAbschluss({
+  const einstieg = calculation.tatsaechlicherEinstieg;
+  const kursbewegung = calculation.richtung === 'long' ? aktuellerKurs - einstieg : einstieg - aktuellerKurs;
+  const prozentVomEinstieg = (kursbewegung / einstieg) * 100;
+  const ergebnis = calculateAbschluss({
     richtung: calculation.richtung,
     einstiegGepuffert: calculation.tatsaechlicherEinstieg,
     positionsgroesse: calculation.positionsgroesse,
@@ -26,6 +29,7 @@ function offenerGewinn(calculation: Calculation, aktuellerKurs: number | undefin
     ausstiegPreis: aktuellerKurs,
     gebuehren: 0,
   });
+  return { ...ergebnis, prozentVomEinstieg };
 }
 
 export function VerlaufView({ store, aktuelleKurse }: { store: TradeStore; aktuelleKurse: AktuelleKurse }) {
@@ -153,7 +157,8 @@ export function VerlaufView({ store, aktuelleKurse }: { store: TradeStore; aktue
                     <span>Aktueller Gewinn/Verlust</span>
                     <strong className={zwischenstand.plEuro >= 0 ? 'calc-list__pl--positiv' : 'calc-list__pl--negativ'}>
                       {mitVorzeichen(zwischenstand.plEuro, 2)} {store.profile.waehrung} (
-                      {mitVorzeichen(zwischenstand.plProzent, 2)} %, {mitVorzeichen(zwischenstand.crv, 2)} R)
+                      {mitVorzeichen(zwischenstand.prozentVomEinstieg, 2)} % vom Einstieg,{' '}
+                      {mitVorzeichen(zwischenstand.plProzent, 2)} % vom Depot, {mitVorzeichen(zwischenstand.crv, 2)} R)
                     </strong>
                   </div>
                 );
